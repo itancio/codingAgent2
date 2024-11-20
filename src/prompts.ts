@@ -1,10 +1,13 @@
-import { encode, encodeChat } from 'gpt-tokenizer';
-import { ChatMessage, LLModel, PRFile } from './constants';
-import { smarterContextPatchStrategy, rawPatchStrategy } from './context/review';
+import { encode, encodeChat } from "gpt-tokenizer";
+import { ChatMessage, LLModel, PRFile } from "./constants";
+import {
+  smarterContextPatchStrategy,
+  rawPatchStrategy,
+} from "./context/review";
 
 const ModelsToTokenLimits = new Map<string, number>([
-  ["gpt-3.5-turbo", 4096],
-  ["gpt-4", 7200]
+  ["llama-3.1-8b-instant", 128000],
+  ["llama-3.1-70b-versatile", 128000],
 ]);
 
 export const REVIEW_DIFF_PROMPT = `You are PR-Reviewer, a language model designed to review git pull requests.
@@ -45,7 +48,6 @@ Don't repeat the prompt in the answer, and avoid outputting the 'type' and 'desc
 
 Think through your suggestions and make exceptional improvements.`;
 
-
 export const XML_PR_REVIEW_PROMPT = `As the PR-Reviewer AI model, you are tasked to analyze git pull requests across any programming language and provide comprehensive and precise code enhancements. Keep your focus on the new code modifications indicated by '+' lines in the PR. Your feedback should hunt for code issues, opportunities for performance enhancement, security improvements, and ways to increase readability. 
 
 Ensure your suggestions are novel and haven't been previously incorporated in the '+' lines of the PR code. Refrain from proposing enhancements that add docstrings, type hints, or comments. Your recommendations should strictly target the '+' lines without suggesting the need for complete context such as the whole repo or codebase.
@@ -79,40 +81,39 @@ Example output:
 </review>
 \`\`\`
 
-Note: The 'comment' and 'describe' tags should elucidate the advice and why it’s given, while the 'code' tag hosts the recommended code snippet within proper GitHub Markdown syntax. The 'type' defines the suggestion's category such as performance, security, readability, etc.`
+Note: The 'comment' and 'describe' tags should elucidate the advice and why it’s given, while the 'code' tag hosts the recommended code snippet within proper GitHub Markdown syntax. The 'type' defines the suggestion's category such as performance, security, readability, etc.`;
 
 export const PR_SUGGESTION_TEMPLATE = `{COMMENT}
 {ISSUE_LINK}
 
 {CODE}
-`
+`;
 
 const assignLineNumbers = (diff: string) => {
-  const lines = diff.split('\n');
+  const lines = diff.split("\n");
   let newLine = 0;
   const lineNumbers = [];
 
   for (const line of lines) {
-    if (line.startsWith('@@')) {
+    if (line.startsWith("@@")) {
       // This is a chunk header. Parse the line numbers.
       const match = line.match(/@@ -\d+,\d+ \+(\d+),\d+ @@/);
       newLine = parseInt(match[1]);
       lineNumbers.push(line); // keep chunk headers as is
-    } else if (!line.startsWith('-')) {
+    } else if (!line.startsWith("-")) {
       // This is a line from the new file.
       lineNumbers.push(`${newLine++}: ${line}`);
     }
   }
 
-  return lineNumbers.join('\n');
-}
+  return lineNumbers.join("\n");
+};
 
 export const buildSuggestionPrompt = (file: PRFile) => {
   const rawPatch = String.raw`${file.patch}`;
   const patchWithLines = assignLineNumbers(rawPatch);
   return `## ${file.filename}\n\n${patchWithLines}`;
-}
-
+};
 
 export const buildPatchPrompt = (file: PRFile) => {
   if (file.old_contents == null) {
@@ -120,36 +121,40 @@ export const buildPatchPrompt = (file: PRFile) => {
   } else {
     return smarterContextPatchStrategy(file);
   }
-}
+};
 
 export const getReviewPrompt = (diff: string): ChatMessage[] => {
   const convo = [
-    {role: 'system', content: REVIEW_DIFF_PROMPT},
-    {role: 'user', content: diff}
-  ]
+    { role: "system", content: REVIEW_DIFF_PROMPT },
+    { role: "user", content: diff },
+  ];
   return convo;
-}
+};
 
 export const getXMLReviewPrompt = (diff: string): ChatMessage[] => {
   const convo = [
-    {role: 'system', content: XML_PR_REVIEW_PROMPT},
-    {role: 'user', content: diff}
-  ]
+    { role: "system", content: XML_PR_REVIEW_PROMPT },
+    { role: "user", content: diff },
+  ];
   return convo;
-}
+};
 
-export const constructPrompt = (files: PRFile[], patchBuilder: (file: PRFile) => string, convoBuilder: (diff: string) => ChatMessage[]) => {
+export const constructPrompt = (
+  files: PRFile[],
+  patchBuilder: (file: PRFile) => string,
+  convoBuilder: (diff: string) => ChatMessage[]
+) => {
   const patches = files.map((file) => patchBuilder(file));
   const diff = patches.join("\n");
   const convo = convoBuilder(diff);
   return convo;
-}
+};
 
 export const getTokenLength = (blob: string) => {
   return encode(blob).length;
-}
+};
 
 export const isConversationWithinLimit = (convo: any[], model: LLModel) => {
-  const convoTokens = encodeChat(convo, model).length
+  const convoTokens = encodeChat(convo, model).length;
   return convoTokens < ModelsToTokenLimits.get(model);
-}
+};

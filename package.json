@@ -5,12 +5,13 @@
     "serve": "tsc && node dist/app.js"
   },
   "dependencies": {
-    "@axiomhq/js": "^1.0.0-rc.1",
+    "@axiomhq/js": "^1.2.0",
     "@babel/parser": "^7.23.0",
     "@babel/traverse": "^7.23.2",
     "@octokit/rest": "^20.0.2",
     "@octokit/webhooks-definitions": "^3.67.3",
     "@types/node": "^20.8.3",
+    "axiom": "^0.1.6",
     "diff": "^5.1.0",
     "dotenv": "^16.3.1",
     "gpt-tokenizer": "^2.1.2",

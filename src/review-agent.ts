@@ -29,7 +29,8 @@ export const logPRInfo = (pullRequest: PullRequestEvent) => {
 
 export const reviewDiff = async (traceTag: string, convo: ChatMessage[], model: LLModel = "gpt-3.5-turbo") => {
     const openai = new OpenAI({
-        apiKey: process.env.OPENAI_API_KEY,
+        baseURL: "https://api.groq.com/openai/v1",
+        apiKey: process.env.GROQ_API_KEY,
     });
     const requestParams = {  
         messages: convo,
